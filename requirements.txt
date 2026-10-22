@@ -1,4 +1,5 @@
 openai>=1.40
+python-dotenv
 # Milestone 2 (not needed to run Milestone 1):
 # streamlit>=1.38
 # plotly>=5.22
