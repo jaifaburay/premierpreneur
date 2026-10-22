@@ -1,101 +1,53 @@
-# PremierPreneur — Milestone 1
+# PremierPreneur
 
-Multi-agent business decision assistant for small online retailers (CIS 4394 – Agentic AI, Fall 2026).
-Milestone 1 delivers **one agent running end to end** over **real calculation tools** with a
-**max-iteration stop guard** and a **full execution trace** of every run.
+This is a business decision assistant for small retailers, built for my CIS 4394 (Agentic AI) at Georgia State University's Robinson College of Business.
+An AI agent answers an owner's question like *"I have $1,000 to restock this week, what should I order?"*
+by calling calculation tools over the store's sales and inventory data. The model never does the math;
+the tools do, and the model explains the result.
 
-```
-premierpreneur/
-├── run_agent.py              # CLI entry point
-├── premierpreneur/
-│   ├── agent.py              # the agent loop (reasoning → tool call → observation → answer)
-│   ├── tools.py              # 5 deterministic tools over SQLite + their JSON schemas
-│   ├── llm.py                # backends: openai | ollama | mock
-│   ├── trace.py              # trace recorder → traces/*.md and *.json
-│   └── db.py                 # CSV → SQLite loader (de-duplicates, flags missing costs)
-├── data/
-│   ├── generate_data.py      # seeded synthetic store data (no customer data)
-│   ├── products.csv  sales.csv  inventory.csv  suppliers.csv
-│   └── premierpreneur.db     # built automatically on first run
-├── traces/                   # one .md + .json per run
-└── docs/MILESTONE1_writeup.md
-```
+**Milestone 1 (this version):** Contains one agent, five tools, a max-iteration of 10 stop guard, and a saved execution trace.
 
-## Setup
+## How it works
 
-```bash
-pip install -r requirements.txt
-```
+1. The owner's question goes to the model with a system prompt (its role, how to work, tool rules, and answer format).
+2. The model either calls a tool or answers. If it calls a tool, Python runs it over the SQLite database and sends the results back.
+3. This repeats until the model answers, or until the iteration limit stops it.
+4. Every step (reasoning, tool call, result) is saved to a trace file.
 
-## Run
+## Files
 
-```bash
-# 1) offline demo — no API key, scripted model, exercises the whole loop
-python run_agent.py --backend mock --scenario restock
-
-# 2) real model (OpenAI) — this is the Milestone 1 submission run
-export OPENAI_API_KEY=sk-...            # Windows PowerShell: $env:OPENAI_API_KEY="sk-..."
-python run_agent.py --backend openai --model gpt-4o-mini --scenario restock
-
-# 3) local model through Ollama (OpenAI-compatible endpoint, needs a tool-calling model)
-ollama pull llama3.1:8b
-python run_agent.py --backend ollama --model llama3.1:8b --scenario restock
-
-# ask anything
-python run_agent.py --backend openai -q "I have $1,500 to restock. Be conservative. What should I order?"
-
-# show the stop guard firing (loop cut off after 3 iterations, no answer issued)
-python run_agent.py --backend mock --scenario restock --max-iterations 3
-
-# other built-in questions
-python run_agent.py --backend openai --scenario discount
-python run_agent.py --backend openai --scenario restock-conservative
-
-# wipe and regenerate the synthetic data + database
-python run_agent.py --rebuild-data
-```
-
-Every run writes `traces/trace_<run-id>_<backend>.md` (readable) and `.json` (complete).
-Exit code is `0` when the agent reached a final answer, `2` when the guard or an error stopped it.
-
-## How the agent works
-
-```
-system prompt + owner question
-        │
-        ▼
-┌─ iteration i of max_iterations ──────────────────────────────┐
-│  model writes 1–2 sentences of reasoning                     │
-│  ├─ tool call? ──► dispatch() runs Python over SQLite        │
-│  │                 observation (JSON, or {"error": ...})     │
-│  │                 appended as a tool message ──► loop       │
-│  └─ no tool call ──► final answer  (stop_reason=final_answer)│
-└──────────────────────────────────────────────────────────────┘
-        │  loop exhausted
-        ▼
-stop_reason=max_iterations — partial evidence kept, no recommendation issued
-```
-
-The model never computes a number. The five tools are plain Python with input validation; bad
-arguments come back as an observation (`{"error": "..."}`) so the model can correct itself instead
-of the run crashing.
-
-| Tool | What it returns |
+| File | What it is |
 |---|---|
-| `get_sales_summary(days)` | units, net revenue, COGS, gross profit, margin %, prior-period trend per product; flags missing costs |
-| `get_inventory_status()` | on-hand, 30-day velocity, days of cover, status `stockout_risk / low / ok / overstock` |
-| `get_supplier_terms(product_ids?)` | unit cost, MOQ, supplier, lead time |
-| `plan_restock(budget, strategy)` | two-pass budget allocation (survive lead time → top up to target), unfunded gap, assumptions |
-| `evaluate_discount(product_id, discount_pct)` | margin at the discount, breakeven volume to hold gross profit |
+| `my_agent.py` | The agent loop, stop guard, bounded retries and trace writer. Run this. |
+| `my_tools.py` | The first tool I wrote (`get_inventory_status`); kept for reference. |
+| `plan_tool.py` | An `update_plan` tool modelled on OpenAI's Codex harness. |
+| `premierpreneur/tools.py` | The five calculation tools: sales summary, inventory status, supplier terms, restock planner, discount evaluator. |
+| `premierpreneur/db.py` | Loads the CSVs into SQLite, drops duplicate sales, flags missing costs. |
+| `data/` | Synthetic 12-product store with 90 days of sales. `generate_data.py` rebuilds it. |
+| `traces/` | Saved runs. `trace_restock_qwen.json` is the Milestone 1 submission. |
+| `hello.py` | One-line model test used during setup. |
+| `run_agent.py`, `premierpreneur/agent.py`, `llm.py`, `trace.py` | A fuller runner with backend switching; Milestone 2 will build on it. |
 
-## Synthetic data
+## Models
 
-`data/generate_data.py` builds a 12-SKU home-goods store with 90 days of order lines (seeded, so
-every rebuild is identical). It deliberately includes the edge cases from the proposal's evaluation
-plan: a product with **no unit cost** (P011), a **slow mover** (P010), a **fast mover at stockout risk**
-(P002), **declining demand** (P012) and **duplicate sale rows** that the loader must drop.
+- **Cloud:** Gemini 3.8 Flash on Google AI Studio's free tier (the course model).
+- **Local:** Qwen3-8B, 4-bit (Q4_K_M), run with Ollama. The submitted trace used this one because Gemini was overloaded during the run window.
 
-## Roadmap (Milestone 2)
+## How to run it (Run each line of code one by one)
+pip install -r requirements.txt
+python data\generate_data.py
+python -m premierpreneur.db
 
-Planner / Decision Agent / Reviewer wrapping this loop, retry-with-feedback when the Reviewer rejects,
-Streamlit workspace, Ollama vs OpenAI comparison, 20–30 case evaluation set with pass^k.
+Create a file named `.env` containing `GEMINI_API_KEY=your-key` (acts as your password, do not disclose it). 
+
+Then: python my_agent.py
+
+To use the local model instead, install Ollama, run `ollama pull qwen3:8b`, and in `my_agent.py` set
+`client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")` and `MODEL = "qwen3:8b"`.
+
+To see the stop guard fire, set `MAX_ITERATIONS = 1` and run again.
+
+## AI use
+
+Claude helped write the data generator, the five calculation tools and the trace format, and explained each
+piece while I built the agent loop, plan tool and retry logic.
