@@ -1,0 +1,5 @@
+supplier_id,supplier_name,lead_time_days,payment_terms
+S01,Bamboo & Co. Imports,14,Net 30
+S02,ThermoWorks Supply,21,Net 30
+S03,HomeBasics Wholesale,10,Prepaid
+S04,IronCraft Foundry,30,Net 45

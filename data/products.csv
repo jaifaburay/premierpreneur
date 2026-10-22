@@ -1,0 +1,13 @@
+product_id,product_name,category,unit_price,unit_cost,supplier_id,moq
+P001,Bamboo Cutting Board 18in,Prep,24.99,9.50,S01,12
+P002,Insulated Tumbler 20oz,Drinkware,19.99,6.80,S02,24
+P003,Silicone Spatula Set (5pc),Utensils,12.99,4.10,S03,20
+P004,Cast Iron Skillet 10in,Cookware,34.99,17.50,S04,6
+P005,French Press 34oz,Drinkware,29.99,11.00,S02,12
+P006,Glass Food Storage Set (10pc),Storage,39.99,18.75,S03,8
+P007,Digital Kitchen Scale,Gadgets,15.99,6.25,S03,20
+P008,Linen Kitchen Apron,Textiles,22.99,9.90,S01,10
+P009,Spice Rack Organizer,Storage,27.99,12.40,S01,6
+P010,Herb Garden Starter Kit,Seasonal,18.99,7.60,S03,25
+P011,Marble Rolling Pin,Prep,32.99,,S04,6
+P012,Stainless Measuring Cups,Utensils,14.99,5.30,S03,20
