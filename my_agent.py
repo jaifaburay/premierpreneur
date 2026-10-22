@@ -9,8 +9,18 @@ from plan_tool import update_plan, PLAN_SCHEMA
 TOOL_SCHEMAS = TOOL_SCHEMAS + [PLAN_SCHEMA]
 TOOL_FUNCTIONS = {**TOOL_FUNCTIONS, "update_plan": update_plan}
 
-client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama", timeout=180)
-MODEL = "qwen3:8b"
+BACKEND = "gemini"   # "gemini" (cloud, course free tier) or "ollama" (local Qwen3-8B)
+
+if BACKEND == "gemini":
+    client = OpenAI(
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        api_key=os.environ["GEMINI_API_KEY"],
+        timeout=60,
+    )
+    MODEL = "gemini-3.8-flash"
+else:
+    client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama", timeout=180)
+    MODEL = "qwen3:8b"
 
 MAX_ITERATIONS = 10          # the stop guard
 
@@ -94,8 +104,8 @@ def run(question):
                              "content": json.dumps(result)})   # observation goes back in
 
     print(f"\nSTOPPED: max iterations ({MAX_ITERATIONS}) reached without a final answer.")
-    trace["final_answer"], trace["stop_reason"] = None, "max_iterations"  
-    json.dump(trace, open("trace.json", "w"), indent=2)                   
+    trace["final_answer"], trace["stop_reason"] = None, "max_iterations"
+    json.dump(trace, open("trace.json", "w"), indent=2)
     return None
 
 
