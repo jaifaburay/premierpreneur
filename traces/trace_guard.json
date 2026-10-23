@@ -1,0 +1,175 @@
+{
+  "question": "I have $1,000 to spend on restocking this week. Which products should I reorder, how many of each, and what will it cost? Use a moderate strategy. Tell me what you could not cover.",
+  "model": "qwen3:8b",
+  "max_iterations": 1,
+  "steps": [
+    {
+      "iteration": 1,
+      "reasoning": "",
+      "tool_calls": [
+        {
+          "tool": "plan_restock",
+          "arguments": {
+            "strategy": "moderate",
+            "budget": 1000
+          },
+          "observation": {
+            "strategy": "moderate",
+            "target_days_cover_beyond_lead_time": 35,
+            "budget": 1000.0,
+            "total_cost": 999.2,
+            "remaining_budget": 0.8,
+            "budget_needed_for_full_target_plan": 6202.1,
+            "plan": [
+              {
+                "product_id": "P002",
+                "product_name": "Insulated Tumbler 20oz",
+                "status": "stockout_risk",
+                "on_hand": 18,
+                "days_of_cover_now": 3.7,
+                "order_qty": 104,
+                "of_target_qty": 253,
+                "unit_cost": 6.8,
+                "line_cost": 707.2,
+                "days_of_cover_after_delivery": 25.3,
+                "note": "lead time covered + partial top-up"
+              },
+              {
+                "product_id": "P003",
+                "product_name": "Silicone Spatula Set (5pc)",
+                "status": "stockout_risk",
+                "on_hand": 28,
+                "days_of_cover_now": 7.4,
+                "order_qty": 20,
+                "of_target_qty": 143,
+                "unit_cost": 4.1,
+                "line_cost": 82.0,
+                "days_of_cover_after_delivery": 12.6,
+                "note": "covers lead time only"
+              },
+              {
+                "product_id": "P004",
+                "product_name": "Cast Iron Skillet 10in",
+                "status": "stockout_risk",
+                "on_hand": 30,
+                "days_of_cover_now": 21.4,
+                "order_qty": 12,
+                "of_target_qty": 61,
+                "unit_cost": 17.5,
+                "line_cost": 210.0,
+                "days_of_cover_after_delivery": 30.0,
+                "note": "covers lead time only"
+              }
+            ],
+            "unfunded": [
+              {
+                "product_id": "P002",
+                "product_name": "Insulated Tumbler 20oz",
+                "status": "stockout_risk",
+                "units_short_of_target": 149,
+                "additional_cost_to_fully_fund": 1013.2,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P003",
+                "product_name": "Silicone Spatula Set (5pc)",
+                "status": "stockout_risk",
+                "units_short_of_target": 123,
+                "additional_cost_to_fully_fund": 504.3,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P007",
+                "product_name": "Digital Kitchen Scale",
+                "status": "low",
+                "units_short_of_target": 73,
+                "additional_cost_to_fully_fund": 456.25,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P001",
+                "product_name": "Bamboo Cutting Board 18in",
+                "status": "low",
+                "units_short_of_target": 83,
+                "additional_cost_to_fully_fund": 788.5,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P004",
+                "product_name": "Cast Iron Skillet 10in",
+                "status": "stockout_risk",
+                "units_short_of_target": 49,
+                "additional_cost_to_fully_fund": 857.5,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P005",
+                "product_name": "French Press 34oz",
+                "status": "low",
+                "units_short_of_target": 60,
+                "additional_cost_to_fully_fund": 660.0,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P009",
+                "product_name": "Spice Rack Organizer",
+                "status": "ok",
+                "units_short_of_target": 22,
+                "additional_cost_to_fully_fund": 272.8,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P006",
+                "product_name": "Glass Food Storage Set (10pc)",
+                "status": "ok",
+                "units_short_of_target": 19,
+                "additional_cost_to_fully_fund": 356.25,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P008",
+                "product_name": "Linen Kitchen Apron",
+                "status": "ok",
+                "units_short_of_target": 19,
+                "additional_cost_to_fully_fund": 188.1,
+                "lead_time_covered": true
+              },
+              {
+                "product_id": "P012",
+                "product_name": "Stainless Measuring Cups",
+                "status": "ok",
+                "units_short_of_target": 20,
+                "additional_cost_to_fully_fund": 106.0,
+                "lead_time_covered": true
+              }
+            ],
+            "skipped": [
+              {
+                "product_id": "P010",
+                "product_name": "Herb Garden Starter Kit",
+                "reason": "already covered: 288.0d on hand >= 45d target"
+              }
+            ],
+            "excluded_missing_cost": [
+              {
+                "product_id": "P011",
+                "product_name": "Marble Rolling Pin",
+                "reason": "unit_cost missing - cannot price an order"
+              }
+            ],
+            "assumptions": [
+              "demand = average daily units over the last 30 days, assumed constant",
+              "cover target = supplier lead time + strategy target days",
+              "pass 1 funds every product through its own lead time; pass 2 tops up toward target",
+              "first order of a product must meet supplier MOQ; top-ups can be any size",
+              "unit cost from the product catalog; shipping and duties not included",
+              "ranking: fewest days of cover first, then highest unit margin"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "final_answer": null,
+  "stop_reason": "max_iterations"
+}
