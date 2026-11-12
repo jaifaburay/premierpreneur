@@ -52,6 +52,25 @@ def _r2(x: float | None) -> float | None:
     return None if x is None else round(float(x), 2)
 
 
+def _find_product(conn: sqlite3.Connection, text: Any) -> str:
+    """Turn what the model passed (an id like 'P004' or a name like 'cast iron skillet')
+    into a real product_id. Never guesses: no match or several matches is an error."""
+    if not isinstance(text, str) or not text.strip():
+        raise ToolError(f"a product must be a product id or product name, got {text!r}")
+    wanted = text.strip().lower()
+    products = conn.execute("SELECT product_id, product_name FROM products ORDER BY product_id").fetchall()
+    for p in products:                                   # exact id first
+        if p["product_id"].lower() == wanted:
+            return p["product_id"]
+    matches = [p for p in products if wanted in p["product_name"].lower()]
+    if len(matches) == 1:
+        return matches[0]["product_id"]
+    listing = ", ".join(f"{p['product_id']} {p['product_name']}" for p in (matches or products))
+    if matches:
+        raise ToolError(f"{text!r} matches more than one product: {listing}. Use the product id.")
+    raise ToolError(f"no product has the id or name {text!r}. The products are: {listing}")
+
+
 def _check_int(name: str, value: Any, lo: int, hi: int) -> int:
     try:
         v = int(value)
@@ -214,9 +233,11 @@ def get_supplier_terms(product_ids: list[str] | None = None, db_path=None) -> di
     """Unit cost, MOQ, supplier and lead time per product."""
     if product_ids is not None:
         if not isinstance(product_ids, list) or not all(isinstance(x, str) for x in product_ids):
-            raise ToolError("product_ids must be a list of product id strings, e.g. ['P001','P002']")
+            raise ToolError("product_ids must be a list of product ids or names, e.g. ['P001','French Press']")
     conn = _conn(db_path)
     try:
+        if product_ids:                                  # ids or names -> real ids, in the order asked
+            product_ids = list(dict.fromkeys(_find_product(conn, x) for x in product_ids))
         sql = """
             SELECT p.product_id, p.product_name, p.unit_cost, p.moq,
                    s.supplier_id, s.supplier_name, s.lead_time_days, s.payment_terms
@@ -413,9 +434,8 @@ def evaluate_discount(product_id: str, discount_pct: float, db_path=None) -> dic
 
     conn = _conn(db_path)
     try:
+        product_id = _find_product(conn, product_id)     # accepts an id or a name
         p = conn.execute("SELECT * FROM products WHERE product_id = ?", (product_id,)).fetchone()
-        if p is None:
-            raise ToolError(f"unknown product_id {product_id!r}")
         end = _as_of(conn)
         cur = _units_by_product(conn, end - timedelta(days=30), end).get(product_id, {"units": 0, "revenue": 0.0})
         inv = conn.execute("SELECT on_hand FROM inventory WHERE product_id = ?", (product_id,)).fetchone()
@@ -485,7 +505,7 @@ TOOL_SCHEMAS: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {"product_ids": {"type": "array", "items": {"type": "string"},
-                                               "description": "Optional list of product ids, e.g. ['P002','P003']"}},
+                                               "description": "Optional list of products, each a product id or a product name, e.g. ['P002','French Press']. Never guess an id: if you only know the name, pass the name."}},
                 "required": [],
             },
         },
@@ -514,7 +534,7 @@ TOOL_SCHEMAS: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "product_id": {"type": "string"},
+                    "product_id": {"type": "string", "description": "A product id (P010) or a product name (Herb Garden). Never guess an id."},
                     "discount_pct": {"type": "number", "description": "Discount percentage, 0-100 exclusive"},
                 },
                 "required": ["product_id", "discount_pct"],

@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "model": "qwen3-pp",
+    "backend": "ollama",
+    "thinking": "off",
+    "temperature": 0.0,
+    "when": "2026-11-11 21:55",
+    "minutes": 0.2
+  },
+  "summary": {
+    "reviewer_on": {
+      "pass_at_1": 1.0,
+      "pass_k": 1.0,
+      "avg_seconds": 11.6,
+      "by_type": {
+        "normal": {
+          "cases": 1,
+          "pass_at_1": 1.0,
+          "pass_k": 1.0
+        }
+      }
+    },
+    "reviewer_off": {
+      "pass_at_1": 1.0,
+      "pass_k": 1.0,
+      "avg_seconds": 2.7,
+      "by_type": {
+        "normal": {
+          "cases": 1,
+          "pass_at_1": 1.0,
+          "pass_k": 1.0
+        }
+      }
+    }
+  },
+  "runs": {
+    "reviewer_on": {
+      "top_seller": [
+        {
+          "passed": true,
+          "reasons": [],
+          "seconds": 11.6,
+          "status": "answer",
+          "stop_reason": "final_answer",
+          "tools": [
+            "get_sales_summary"
+          ],
+          "review_rounds": 1,
+          "answer": "The product that sold the most units in the last 30 days is **Insulated Tumbler 20oz (P002)**, with **145 units sold**. \n\nThis is a recommendation for your review; nothing is ordered or changed automatically."
+        }
+      ]
+    },
+    "reviewer_off": {
+      "top_seller": [
+        {
+          "passed": true,
+          "reasons": [],
+          "seconds": 2.7,
+          "status": "answer",
+          "stop_reason": "final_answer",
+          "tools": [
+            "get_sales_summary"
+          ],
+          "review_rounds": 0,
+          "answer": "The product that sold the most units in the last 30 days is **Insulated Tumbler 20oz (P002)**, with **145 units sold**. \n\nThis is a recommendation for your review; nothing is ordered or changed automatically."
+        }
+      ]
+    }
+  }
+}

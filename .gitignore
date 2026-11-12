@@ -3,3 +3,8 @@ __pycache__/
 .env
 data/premierpreneur.db
 .venv/
+traces/sessions/
+eval_results/sessions/
+drafts/
+Modelfile
+.gradio/
