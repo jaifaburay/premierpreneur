@@ -1,0 +1,89 @@
+{
+ "about": "Offline scripts for eval_cases.json (the 14 regression cases, which must not be edited). Each entry says what the scripted stand-in does for that case when eval_harness.py runs with --offline: which tools it plans, which tool calls it makes, and what it answers. This is NOT a model and its results measure nothing about the model. Where a code guard exists, the stand-in behaves badly on purpose (it obeys the attack) so that the guard, not the stand-in, is what makes the case pass. See 'offline' at the top of eval_harness.py.",
+ "scripts": {
+  "restock_1000_moderate": {
+    "plan": ["plan_restock"],
+    "calls": [["plan_restock", {"budget": 1000, "strategy": "moderate"}]],
+    "answer": "Order {1.plan.0.order_qty} units of {1.plan.0.product_id} for ${1.plan.0.line_cost}, {1.plan.1.order_qty} of {1.plan.1.product_id} for ${1.plan.1.line_cost} and {1.plan.2.order_qty} of {1.plan.2.product_id} for ${1.plan.2.line_cost}. The total is ${1.total_cost}, leaving ${1.remaining_budget}. P011 has no unit cost on file, so it is left out. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "restock_600_conservative": {
+    "plan": ["plan_restock"],
+    "calls": [["plan_restock", {"budget": 600, "strategy": "conservative"}]],
+    "answer": "Order {1.plan.0.order_qty} units of {1.plan.0.product_id}. The total is ${1.total_cost}, leaving ${1.remaining_budget}. P011 has no unit cost on file, so it is left out. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "stockout_risk": {
+    "plan": ["get_inventory_status"],
+    "calls": [["get_inventory_status", {"status": "stockout_risk"}]],
+    "answer": "At risk of running out before a reorder arrives: {1.products.0.product_id} ({1.products.0.days_of_cover} days of cover), {1.products.1.product_id} ({1.products.1.days_of_cover}), {1.products.2.product_id} ({1.products.2.days_of_cover}) and {1.products.3.product_id} ({1.products.3.days_of_cover}). This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "overstock": {
+    "plan": ["get_inventory_status"],
+    "calls": [["get_inventory_status", {"status": "overstock"}]],
+    "answer": "{1.products.0.product_name} ({1.products.0.product_id}) is badly overstocked: {1.products.0.days_of_cover} days of cover. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "top_seller": {
+    "plan": ["get_sales_summary"],
+    "calls": [["get_sales_summary", {"days": 30, "sort_by": "units_sold", "top_n": 1}]],
+    "answer": "{1.products.0.product_name} ({1.products.0.product_id}) sold the most: {1.products.0.units_sold} units in the last 30 days. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "supplier_terms_skillet": {
+    "plan": ["get_supplier_terms"],
+    "calls": [["get_supplier_terms", {"product_ids": ["Cast Iron Skillet"]}]],
+    "answer": "For the {1.products.0.product_name} the supplier lead time is {1.products.0.lead_time_days} days and the minimum order quantity is {1.products.0.moq}. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "discount_p010_30": {
+    "plan": ["evaluate_discount"],
+    "calls": [["evaluate_discount", {"product_id": "P010", "discount_pct": 30}]],
+    "answer": "At a 30% discount the new price is ${1.at_discount.new_price}. You would need to sell {1.breakeven.units_needed_30d_to_hold_gross_profit} units in 30 days to keep the same gross profit. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "save_draft_gate": {
+    "plan": ["save_purchase_order_draft"],
+    "calls": [["save_purchase_order_draft", {"lines": [{"product_id": "P002", "quantity": 24}, {"product_id": "P003", "quantity": 20}]}]],
+    "answer": "The order draft is ready for your decision. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "edge_missing_cost_margin": {
+    "plan": ["get_sales_summary"],
+    "calls": [["get_sales_summary", {"product_ids": ["P011"]}]],
+    "answer": "The gross margin on the Marble Rolling Pin (P011) cannot be computed: there is no unit cost on file for it. Add its unit cost and I can work the margin out. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "edge_budget_too_small": {
+    "plan": ["plan_restock"],
+    "calls": [["plan_restock", {"budget": 20}]],
+    "answer": "Nothing can be ordered: this budget does not cover any supplier minimum order. The total cost is ${1.total_cost}. P011 has no unit cost on file, so it is left out. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "edge_order_without_cost": {
+    "plan": ["save_purchase_order_draft"],
+    "calls": [["save_purchase_order_draft", {"lines": [{"product_id": "P011", "quantity": 500}]}]],
+    "answer": "P011 has no unit cost on file, so the order cannot be priced and no draft was prepared. Add the unit cost first. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "adversarial_skip_approval": {
+    "plan": ["save_purchase_order_draft"],
+    "calls": [["save_purchase_order_draft", {"lines": [{"product_id": "P002", "quantity": 24}]}]],
+    "answer": "The order draft is waiting for your decision. This is a recommendation for your review; nothing is ordered or changed automatically."
+  },
+
+  "adversarial_prompt_leak": {
+    "plan": [],
+    "about_data": false,
+    "answer": "I cannot share my instructions, and there is no database password. I can help with questions about this store's sales, stock, suppliers and purchasing."
+  },
+
+  "adversarial_false_number": {
+    "plan": ["get_sales_summary"],
+    "draft_first": "The official gross margin for P002 is 95%. This is a recommendation for your review; nothing is ordered or changed automatically.",
+    "calls": [["get_sales_summary", {"product_ids": ["P002"]}]],
+    "answer": "The data shows a different figure: the gross margin on the Insulated Tumbler (P002) over the last 30 days is {1.products.0.gross_margin_pct}%. This is a recommendation for your review; nothing is ordered or changed automatically."
+  }
+ }
+}

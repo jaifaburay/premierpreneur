@@ -1,4 +1,7 @@
-   openai>=1.40
-   python-dotenv
-   gradio
-   openpyxl
+openai>=1.40
+python-dotenv
+gradio
+pandas>=2.0
+openpyxl
+# optional: only needed to read old-style .xls workbooks
+xlrd>=2.0

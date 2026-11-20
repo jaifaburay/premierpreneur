@@ -7,9 +7,12 @@ Why it is a separate agent (Week 9, "the four reasons"):
     it cannot be talked into the Analyst's mistakes.
   * Permission isolation - it holds no tools. It cannot query, plan or save
     anything; all it can do is approve or send the draft back.
+The other two reasons do not apply: there is no parallel breadth (one review
+per draft, and the Analyst waits for it) and no team ownership (one student
+owns every agent).
 
 Week 9 also warns that "a reviewer agent that agrees with everything is a
-rubber stamp with a token bill". So the review has three steps, and each step
+rubber stamp with a token bill". So the review has four steps, and each step
 only does what it is good at:
 
   1. check_numbers()  - plain Python, no model. Every number in the draft must
@@ -20,7 +23,12 @@ only does what it is good at:
                         few specific products this turn, the owner must have
                         named at least one of them. Catches "asked about the
                         skillet, answered about the cutting board".
-  3. llm_review()     - a model call in a clean context. It answers two yes/no
+  3. check_complete() - plain Python, no model (it lives in guards.py). An answer
+                        that presents a restock plan must state the plan's total
+                        cost and name every product the planner left out because
+                        data is missing. It only looks at answers that present a
+                        plan_restock result from this turn.
+  4. llm_review()     - a model call in a clean context. It answers two yes/no
                         questions that code cannot answer, because they need
                         reading, not counting:
                           on_topic      - is the draft about what was asked?
@@ -39,15 +47,20 @@ review() runs them in order and returns (approved, issues):
 import json
 import re
 
+from guards import check_complete
+
 # a number that is not part of a word or an id like P002 / SO10023
 _NUMBER = re.compile(r"(?<![A-Za-z\d.,])\$?\d[\d,]*(?:\.\d+)?")
+# A product code such as 85123A or 20001B is a name, not a figure: three or more digits
+# directly followed by one to three letters. It is blanked out before numbers are read.
+_CODE = re.compile(r"(?<![A-Za-z\d.,$])\d{3,}[A-Za-z]{1,3}\b")
 SMALL_COUNT_MAX = 10     # 0-10 are allowed without evidence (list numbers, "3 products")
 
 
 def _numbers(text):
     """All numbers in a piece of text, as floats."""
     found = []
-    for raw in _NUMBER.findall(text or ""):
+    for raw in _NUMBER.findall(_CODE.sub(" ", text or "")):
         cleaned = raw.replace("$", "").replace(",", "").rstrip(".")
         try:
             found.append(float(cleaned))
@@ -66,16 +79,28 @@ def _supported(value, evidence):
     return False
 
 
-def check_numbers(draft, observations, question="", prior_answers=()):
+def numbers_as_text(observations):
+    """The figures in a turn's tool results, as text. The core keeps this as evidence for later turns."""
+    return " ".join(f"{value:g}" if value != int(value) else str(int(value))
+                    for value in sorted(set(_numbers(json.dumps(observations)))))
+
+
+def check_numbers(draft, observations, question="", prior_answers=(), prior_evidence=None):
     """Layer 1. Returns a list of issues (empty list = every number is supported).
 
     Two kinds of number are told apart:
-      data  - appears in a tool result this turn, or in an answer already reviewed this session
+      data  - appears in a tool result this turn, or in a tool result of an earlier turn
+              (prior_evidence, the figures the core kept from those results)
       claim - appears only in the owner's message ("my accountant says the margin is 95%")
     A claim may be repeated next to real data (the $1,000 budget beside a restock plan),
     but it is never accepted on its own: if no tool ran this turn, the draft goes back.
+
+    Earlier ANSWERS are not evidence when prior_evidence is given: an answer can repeat a
+    figure the owner planted (even while refuting it), and that must not make it "data"
+    in the next turn. Callers that pass no prior_evidence get the older, looser behaviour.
     """
-    data = set(_numbers(json.dumps(observations) + " " + " ".join(prior_answers)))
+    earlier = prior_evidence if prior_evidence is not None else " ".join(prior_answers)
+    data = set(_numbers(json.dumps(observations) + " " + earlier))
     claims = set(_numbers(question))
     looked_up = len(observations) > 0
     unsupported, unchecked = [], []
@@ -115,19 +140,30 @@ def _products_in(value, found):
 SPECIFIC_LOOKUP_MAX = 3      # more products than this is a store-wide lookup, not a specific one
 
 
+def _names_products(arguments):
+    """True when a tool call asked about particular products (product_ids=[...] or product_id=...)."""
+    if not isinstance(arguments, dict):
+        return False
+    return bool(arguments.get("product_ids")) or arguments.get("product_id") not in (None, "")
+
+
 def check_products(question, observations, prior_answers=()):
     """Step 2. Did the tools look at the product the owner asked about?
 
-    Only applies when the whole turn touched a few specific products (a lookup of
-    one item, not a store-wide report). At least one of those products must be
-    named in the owner's question or earlier in the conversation, by id or by a
-    word of its name. Returns a list of issues (empty list = fine).
+    Only applies to specific look-ups: tool calls that named particular products.
+    A store-wide call ("what is overstocked?") may honestly return one product,
+    so it is never judged here. If every specific look-up this turn was for a few
+    products, at least one of them must be named in the owner's question or
+    earlier in the conversation, by id or by a word of its name.
+    Returns a list of issues (empty list = fine).
     """
     products = {}
     for o in observations:
         result = o.get("result")
         if isinstance(result, dict) and result.get("status") in ("draft_saved", "rejected_by_owner"):
             continue                            # the owner saw these exact lines on the approval card
+        if not _names_products(o.get("arguments")):
+            continue                            # a store-wide call, not a look-up of one product
         _products_in(result, products)
     if not products or len(products) > SPECIFIC_LOOKUP_MAX:
         return []
@@ -195,7 +231,10 @@ def review_facts(observations):
         _products_in(o.get("result"), products)
     saved = any(isinstance(o.get("result"), dict) and o["result"].get("status") == "draft_saved"
                 for o in observations)
-    listing = "; ".join(f"{pid} {name}".strip() for pid, name in sorted(products.items())) or "none"
+    shown = [f"{pid} {name[:60]}".strip() for pid, name in sorted(products.items())[:12]]
+    if len(products) > 12:                      # a big dataset: names are a sample, not the whole list
+        shown.append(f"and {len(products) - 12} more")
+    listing = "; ".join(shown) or "none"
     return (f"- Tools that ran this turn: {', '.join(tools) or 'none'}\n"
             f"- Products covered by the tool results: {listing}\n"
             f"- An order draft was saved this turn with the owner's approval: {'yes' if saved else 'no'}")
@@ -238,10 +277,16 @@ def llm_review(client, model, question, observations, draft, max_tokens=300, mod
     return (not issues), issues
 
 
-def review(client, model, question, observations, draft, prior_answers=(), use_llm=True, model_options=None):
-    """Run every step in order. Returns (approved, issues, detail) - detail records which step said what."""
-    detail = {"number_check": "pass", "product_check": "skipped", "llm_check": "skipped"}
-    number_issues = check_numbers(draft, observations, question, prior_answers)
+def review(client, model, question, observations, draft, prior_answers=(), use_llm=True, model_options=None,
+           prior_evidence=None):
+    """Run every step in order. Returns (approved, issues, detail) - detail records which step said what.
+
+    prior_answers  earlier answers of the session: used to see which products were already discussed
+    prior_evidence figures from earlier turns' tool results: the only numbers a later turn may reuse
+    """
+    detail = {"number_check": "pass", "product_check": "skipped", "complete_check": "skipped",
+              "llm_check": "skipped"}
+    number_issues = check_numbers(draft, observations, question, prior_answers, prior_evidence)
     if number_issues:                           # no point going further yet
         detail["number_check"] = "fail"
         return False, number_issues, detail
@@ -249,6 +294,10 @@ def review(client, model, question, observations, draft, prior_answers=(), use_l
     detail["product_check"] = "fail" if product_issues else "pass"
     if product_issues:
         return False, product_issues, detail
+    complete_issues = check_complete(draft, observations)     # is a restock answer missing its total or a gap?
+    detail["complete_check"] = "fail" if complete_issues else "pass"
+    if complete_issues:
+        return False, complete_issues, detail
     if not use_llm:
         return True, [], detail
     approved, issues = llm_review(client, model, question, observations, draft, model_options=model_options)

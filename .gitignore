@@ -6,5 +6,6 @@ data/premierpreneur.db
 traces/sessions/
 eval_results/sessions/
 drafts/
+uploads/
 Modelfile
 .gradio/
